@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## Added
+
+- **! Added `Table.get_rows_generator(self: Self@Table, *, lock: bool = True) -> Generator[tuple, None, None]`, which is the same as the _old_ `get_rows`, but it's a generator** (i'm not sure if that helps with performance or not)
+- `Table.remove_row(self: Self@Table, where: Where, must_remove: bool = True, silence_warning: bool = False) -> bool` got a new argument: `silence_warnings`. If it's not passed, or False, a warning will be issued if multiple rows matched `where(row)`
+- `Table.remove_rows(self: Self@Table, where: Where, must_remove: bool = True, *, limit: int = 1000) -> int` got a new argument: `must_remove`. See docstring for more info.
+
+## Changed
+
+- `Table.get_rows()` just simply returns `list(self.get_rows_generator(...))`, and issues a warning. (Internally `get_rows` isn't used)
+- Now error messages contain both row and line numbers, to make them easily distinguishable (eg: `on row 3 (line 4)`)
+- Made some miscellaneous fixes/changes to docstrings and error messages.
+
+## Fixed
+
+- `Table.attributes` now doesn't acquire the lock
+- Fixed some docstrings referencing renamed functions
+
 ## [0.4.0-beta.1] - 2022-11-26
 
 ## Added

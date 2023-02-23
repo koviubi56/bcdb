@@ -31,7 +31,8 @@ import functools
 import pathlib
 import string as stringlib
 import threading
-from typing import Any, Callable, Collection, Iterable
+from typing import Any, Callable, Collection, Iterable, Generator
+import warnings
 
 from typing_extensions import Self, TypeAlias
 
@@ -103,11 +104,10 @@ class Table:
             list[Attribute]: The attributes
         """
         first_line = None
-        with self.lock:
-            with self.file.open("r", encoding="utf-8") as file:
-                for line in file:
-                    first_line = line
-                    break
+        with self.file.open("r", encoding="utf-8") as file:
+            for line in file:
+                first_line = line
+                break
         assert first_line, "invalid table file: empty"
         assert first_line.startswith(
             "BCDB "
@@ -167,13 +167,13 @@ class Table:
         # Internal function, please use `.contains()` and `.not_contains()`
         # instead.
         attr_idx = self.get_attribute_index(attribute_name)
-        for rownum, row in enumerate(self.get_rows(), 2):
+        for rownum, row in enumerate(self.get_rows_generator(), 1):
             try:
                 column = row[attr_idx]
             except IndexError as exc:  # pragma: no cover
                 raise AssertionError(
-                    f"invalid row at line {rownum}: doesn't have a column"
-                    f" {attr_idx} (attribute {attribute_name})"
+                    f"invalid row {rownum} (line {rownum+1}): doesn't have a"
+                    f" column {attr_idx} (attribute {attribute_name})"
                 ) from exc
             if column == attribute_value:
                 return rv_if_found
@@ -193,11 +193,8 @@ class Table:
             attribute_value (Any): The value to search for.
 
         Raises:
-            AssertionError: If a row doesn't have that column
-
-            Other exceptions may be raised by other
-            functions (get_attribute_index, get_rows) called by this
-            function.
+            Exceptions may be raised by other functions (_contains) called by
+            this function.
 
         Returns:
             bool: True if any rows contain `attribute_value` at the attribute
@@ -220,11 +217,8 @@ class Table:
             attribute_value (Any): The value to search for.
 
         Raises:
-            AssertionError: If a row doesn't have that column
-
-            Other exceptions may be raised by other
-            functions (get_attribute_index, get_rows) called by this
-            function.
+            Exceptions may be raised by other functions (_contains) called by
+            this function.
 
         Returns:
             bool: False if any rows contain `attribute_value` at the attribute
@@ -235,8 +229,7 @@ class Table:
     def _contains_row(self, row: tuple[Any, ...], rv_if_found: bool) -> bool:
         # Internal function, please use `.contains_row()` and
         # `.not_contains_row()` instead
-        # sourcery skip: use-next
-        for got_row in self.get_rows():
+        for got_row in self.get_rows_generator():
             if got_row == row:
                 return rv_if_found
         return not rv_if_found
@@ -249,6 +242,10 @@ class Table:
 
         If you would like to check that no rows are `row` see
         `not_contains_row` instead.
+
+        Raises:
+            Exceptions may be raised by other functions (_contains_row) called
+            by this function.
 
         Args:
             row (tuple[Any, ...]): The row to look out for.
@@ -267,6 +264,10 @@ class Table:
         If you would like to check that a row is `row` see
         `contains_row` instead.
 
+        Raises:
+            Exceptions may be raised by other functions (_contains_row) called
+            by this function.
+
         Args:
             row (tuple[Any, ...]): The row to look out for.
 
@@ -275,9 +276,11 @@ class Table:
         """
         return self._contains_row(row, False)
 
-    def get_rows(self, *, lock: bool = True) -> list[tuple[Any, ...]]:
+    def get_rows_generator(
+        self, *, lock: bool = True
+    ) -> Generator[tuple[Any, ...], None, None]:
         """
-        Get all rows in the table.
+        Yield all rows in the table.
 
         Raises:
             AssertionError: if the table file doesn't start with `BCDB `
@@ -292,38 +295,45 @@ class Table:
             is only changed internally, please don't use this argument.
             Defaults to True.
 
-        Returns:
-            list[tuple[Any, ...]]: All rows in the table. This is a list of
-            tuples. The tuples represent rows. All of the tuples should have
-            the same length.
+        Yields:
+            tuple[Any, ...]: A row in the table. The tuples represent rows.
+            All of the tuples have the same length.
         """
         with self.lock if lock else contextlib.nullcontext():
-            contents = self.file.read_text(encoding="utf-8")
-        assert contents.startswith(
-            "BCDB "
-        ), "invalid table file: doesn't start with BCDB"
-        rows = contents.splitlines()
-        rows.pop(0)  # the BCDB... line
-        rv: list[tuple[Any, ...]] = []
-        column_: list[Any] = []
-        #                      the 1st line is BCDB...
-        #                                v
-        for rownum, row in enumerate(rows, 2):
-            for columnnum, column in enumerate(row.split(";;")):
-                if columnnum >= len(self.attributes):
+            first_line = True
+
+            for linenum, line in enumerate(
+                self.file.open(encoding="utf-8"), 1
+            ):
+                if first_line:
+                    assert line.startswith(
+                        "BCDB "
+                    ), "invalid table file: doesn't start with BCDB"
+                    first_line = False
+                    continue
+                line = line.rstrip("\r\n")
+                column_: list[Any] = []
+                for columnnum, column in enumerate(line.split(";;")):
+                    if columnnum >= len(self.attributes):
+                        raise AssertionError(
+                            "invalid table file: too many columns on row"
+                            f" {linenum-1} (line {linenum})"
+                        )
+                    attr = self.attributes[columnnum]
+                    column_.append(attr.convert_and_verify(column))
+                if len(column_) != len(self.attributes):
                     raise AssertionError(
-                        f"invalid table file: too many columns on row {rownum}"
+                        "invalid table file: invalid columns on row"
+                        f" {linenum-1} (line {linenum}), expected"
+                        f" {len(self.attributes)}, got {len(column_)}"
                     )
-                attr = self.attributes[columnnum]
-                column_.append(attr.convert_and_verify(column))
-            if len(column_) != len(self.attributes):
-                raise AssertionError(
-                    f"invalid table file: invalid columns on row {rownum},"
-                    f" expected {len(self.attributes)}, got {len(column_)}"
-                )
-            rv.append(tuple(column_))
-            column_ = []
-        return rv
+                yield tuple(column_)
+
+    def get_rows(self, *, lock: bool = True) -> list[tuple[Any, ...]]:
+        warnings.warn(
+            "Consider using .get_rows_generator() instead.", RuntimeWarning
+        )
+        return list(self.get_rows_generator(lock=lock))
 
     def add_row(self, row: tuple[Any, ...], *, lock: bool = True) -> None:
         """
@@ -340,7 +350,6 @@ class Table:
             row (tuple[Any, ...]): The row. Each element in the tuple
             represents a column.
             lock (bool, optional): Acquire lock. Don't change this!
-            ! [WARNING] DO NOT CHANGE THIS! THIS IS ONLY USED INTERNALLY!
         """
         assert len(row) == len(self.attributes), (
             f"invalid value for table {self.name}: invalid number of columns,"
@@ -380,52 +389,82 @@ class Table:
                     f" {exc}"
                 ) from exc
 
-    def remove_row(self, where: Where, must_remove: bool = True) -> bool:
+    def remove_row(
+        self,
+        where: Where,
+        must_remove: bool = True,
+        silence_warning: bool = False,
+    ) -> bool:
         """
-        Remove the first row where `where(row)` is truthy.
+        Remove the *first* row where `where(row)` is truthy.
 
         Args:
             where (Callable[[tuple[Any, ...]], bool]): A function that accepts
             a tuple as a positional argument, and returns a boolean.
             must_remove (bool, optional): If this is True, and no rows were
             removed, an AssertionError will be raised. Defaults to True.
+            silence_warning (bool, optional): By default if we detect a second
+            row that matched `where(row)` then we issue a warning. If this is
+            set to True, that won't happen. Defaults to False.
 
         Raises:
             AssertionError: If `must_remove` is True and no rows were removed
 
             Other exceptions may be raised by other
-            functions (get_rows, write_rows) called by this
+            functions (get_rows_generator, write_rows) called by this
             function.
 
         Returns:
             bool: True if a row was removed, False otherwise
         """
-        rows = self.get_rows()
         changes = False
         new_rows: list[tuple[Any, ...]] = []
-        for row in rows:
-            if (not changes) and where(row):
-                # remove row
-                changes = True
+        # new_rows will be populated with the rows that were NOT removed
+        for row in self.get_rows_generator():
+            if where(row):
+                if changes:
+                    if not silence_warning:
+                        warnings.warn(
+                            "There were multiple rows where `where(row)`"
+                            " was truthy. If you want to remove ALL rows where"
+                            " `where(row)` is truthy, use .remove_rows()"
+                            " instead! If you know what you are doing, then"
+                            " pass silence_warning=True to this function"
+                            " call.",
+                            RuntimeWarning,
+                            stacklevel=2,
+                        )
+                    new_rows.append(row)
+                    # here we *do* add the row to new_rows
+                else:
+                    changes = True
+                    # here we don't add the row to new_rows
             else:
-                # row stays
                 new_rows.append(row)
+                # here we *do* add the row to new_rows
         if must_remove and (not changes):
             raise AssertionError(
-                "invalid row removal: must_remove but nothing was removed"
+                "invalid row removal: must_remove is True, but nothing matched"
+                " `where(row)`; nothing got removed. (If this is intentional,"
+                " pass must_remove=False)"
             )
         if changes:
-            # ^ If nothing is removed, don't waste time and energy
+            # ^ If nothing is removed (changes == False), don't waste time and
+            #   energy
             self.write_rows(new_rows, i_know_what_im_doing=True)
         return changes
 
-    def remove_rows(self, where: Where, *, limit: int = 1000) -> int:
+    def remove_rows(
+        self, where: Where, must_remove: bool = True, *, limit: int = 1000
+    ) -> int:
         """
         Remove all rows where `where(row)` is truthy.
 
         Args:
             where (Callable[[tuple[Any, ...]], bool]): A function that accepts
             a tuple as a positional argument, and returns a boolean.
+            must_remove (bool, optional): If True, an exception will be raised
+            if no rows were removed. Defaults to True.
             limit (int, optional): The limit. If the number of removed rows
             exceeds this limit, the operation will be aborted (it won't even
             start). Defaults to 1000.
@@ -434,30 +473,38 @@ class Table:
             AssertionError: If the number of removed rows exceeded `limit`
 
             Other exceptions may be raised by other
-            functions (get_rows, write_rows) called by this
+            functions (get_rows_generator, write_rows) called by this
             function.
 
         Returns:
             int: The number of rows removed.
         """
-        rows = self.get_rows()
         num_of_changes = 0
         new_rows: list[tuple[Any, ...]] = []
-        for row in rows:
+        # new_rows will be populated with the rows that were NOT removed
+        for row in self.get_rows_generator():
             if where(row):
-                # remove row
                 num_of_changes += 1
+                # here we don't add the row to new_rows
             else:
-                # row stays
                 new_rows.append(row)
+                # here we *do* add the row to new_rows
+        if must_remove and (num_of_changes == 0):
+            raise AssertionError(
+                "invalid rows removal: must_remove is True, but nothing"
+                " matched `where(row)`; nothing got removed. (If this is"
+                " intentional, pass must_remove=False)"
+            )
         if num_of_changes > limit:
             raise AssertionError(
                 f"invalid removal of rows: exceeded the limit ({limit}) with"
                 f" {num_of_changes} number of rows removed. Modify the limit"
-                " argument to allow big removal of rows."
+                " argument to allow big removal of rows. (The database"
+                " remained untouched)"
             )
-        if num_of_changes > 0:
-            # ^ If nothing is removed, don't waste time and energy
+        if num_of_changes:
+            # ^ If nothing is removed (changes == False), don't waste time and
+            #   energy
             self.write_rows(new_rows, i_know_what_im_doing=True)
         return num_of_changes
 
@@ -478,14 +525,14 @@ class Table:
 
         Args:
             rows (list[tuple[Any, ...]]): The rows that will be in the file.
-            i_know_what_im_doing (bool, optional): Must be True to use this
-            function. Defaults to False.
+            i_know_what_im_doing (bool, optional): Defaults to False.
             lock (bool, optional): Acquire lock before reading/writing. Please
             don't change it. Defaults to True.
         """
-        assert (
-            i_know_what_im_doing is True
-        ), "You don't know what you are doing."
+        assert i_know_what_im_doing is True, (
+            "You don't know what you're doing. This function REMOVES **ALL**"
+            " ROWS, then adds the new rows."
+        )
         with self.lock if lock else contextlib.nullcontext():
             # remove ALL rows
             with self.file.open("r", encoding="utf-8") as file:
@@ -495,10 +542,9 @@ class Table:
                 # and then write that to the file
                 file.write(first_line)
 
-            # we are still in the lock, and we do lock=False, because other
+            # [we are still in the lock, and we do lock=False], because other
             # operations might be waiting, but this must finish first
-            for row in rows:
-                self.add_row(row, lock=False)
+            self.add_rows(rows, lock=False)
 
     def map(  # noqa: A003
         self,
@@ -524,7 +570,7 @@ class Table:
             isn't None
 
             Other exceptions may be raised by other
-            functions (get_rows, write_rows) called by this
+            functions (get_rows_generator, write_rows) called by this
             function.
 
         Returns:
@@ -533,7 +579,7 @@ class Table:
         with self.lock:
             # * the actual map part
             new_rows: list[tuple[Any, ...]] = []
-            for row in self.get_rows(lock=False):
+            for row in self.get_rows_generator(lock=False):
                 new_row = func(row)
                 if new_row is None:
                     pass
@@ -688,7 +734,7 @@ class Table:
 
             Other exceptions may be raised by other
             functions (get_attribute, Attribute.check_from, __post_init__,
-            get_rows) called by this function.
+            get_rows_generator) called by this function.
         """
         if isinstance(attribute, str):
             attribute = self.get_attribute(attribute)
@@ -698,14 +744,14 @@ class Table:
         attr_idx = self.attributes.index(attribute)
         from_table = self.__class__(table_file)
         from_table.get_attribute(attribute.name)
-        for idx, row in enumerate(from_table.get_rows(), 2):
+        for rownum, row in enumerate(from_table.get_rows_generator(), 1):
             try:
                 if row[attr_idx] == obj:
                     break
             except IndexError as exc:  # pragma: no cover
                 raise AssertionError(
                     f"invalid table file: no column {attr_idx + 1} at row"
-                    f" {idx}"
+                    f" {rownum} (line {rownum+1})"
                 ) from exc
         else:  # no break
             raise AssertionError(
@@ -743,18 +789,18 @@ class Table:
                 f" within table {self.name}"
             ) from exc
         if attribute.requirements == AttributeRequirements.UNIQUE:
-            for idx, row in enumerate(self.get_rows()):
+            for rownum, row in enumerate(self.get_rows_generator(), 1):
                 try:
                     if row[which_column] == obj:
                         raise AssertionError(
                             f"invalid value at attribute {attribute.name}:"
                             " attribute is unique, but it already appears on"
-                            f" row {idx + 2}"
+                            f" row {rownum} (line {rownum + 1})"
                         )
                 except IndexError as exc:  # pragma: no cover
                     raise AssertionError(
-                        f"invalid table file: row {idx + 2} doesn't have"
-                        f" column {which_column + 1}"
+                        f"invalid table file: row {rownum} (line {rownum + 1})"
+                        f" doesn't have column {which_column + 1}"
                     ) from exc
         else:  # pragma: no cover
             raise AssertionError(
@@ -931,7 +977,10 @@ class Attribute:
                 f"invalid table file: {string!r} isn't boolean"
             )
         if self.type_ == AttributeType.FLOAT:
-            assert "." in string, f"invalid table file: {string!r} isn't float"
+            assert "." in string, (
+                f"invalid table file: {string!r} isn't float (if it's a whole"
+                ' number, then add ".0")'
+            )
             return float(string)
         if self.type_ == AttributeType.INTEGER:
             assert (
@@ -1056,7 +1105,7 @@ class Database:
         assert all(
             val in stringlib.ascii_letters + stringlib.digits
             for val in table_name
-        ), f"invalid table name: {table_name!r}"
+        ), f"invalid table name: {table_name!r} (must match [a-zA-Z1-9])"
         assert all(isinstance(val, Attribute) for val in table_attributes), (
             "invalid table attribute: must be a list of Attribute, got"
             f" {table_attributes!r}"

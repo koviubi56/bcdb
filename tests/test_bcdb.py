@@ -422,7 +422,8 @@ class TestTable:
             file.write("false")
         with pytest.raises(
             AssertionError,
-            match=r"invalid columns on row 2, expected 2, got 1",
+            match=r"invalid table file: invalid columns on row 1 \(line 2\),"
+            r" expected 2, got 1",
         ):
             table.get_rows()
 
@@ -436,9 +437,12 @@ class TestTable:
             ),
         ]
         table = db.add_table("table", attrs)
-        with table.file.open("w", encoding="utf-8") as file:
-            file.write("BCDB a BOOLEAN None None\ntrue;;3.14;;Hello world")
-        with pytest.raises(AssertionError, match=r"too many columns on row 2"):
+        with table.file.open("a", encoding="utf-8") as file:
+            file.write("true;;3.14;;Hello world")
+        with pytest.raises(
+            AssertionError,
+            match=r"invalid table file: too many columns on row 1 \(line 2\)",
+        ):
             table.get_rows()
 
     @staticmethod
@@ -455,7 +459,7 @@ class TestTable:
         table.add_row((False,))
         table.add_row((True,))
         table.add_row((False,))
-        table.remove_row(lambda t: t[0])
+        table.remove_row(lambda t: t[0], silence_warning=True)
         rows = table.get_rows()
         assert rows == [
             (False,),
@@ -494,7 +498,7 @@ class TestTable:
             "t", [bcdb.Attribute("a", bcdb.AttributeType.FLOAT)]
         )
         with pytest.raises(
-            AssertionError, match=r"must_remove but nothing was removed"
+            AssertionError, match=r"must_remove is True, but nothing matched"
         ):
             table.remove_row(lambda _: True)
 
@@ -527,7 +531,7 @@ class TestTable:
             AssertionError,
             match=r"exceeded the limit \(-1\) with 0 number of rows removed\.",
         ):
-            table.remove_rows(lambda _: True, limit=-1)
+            table.remove_rows(lambda _: True, must_remove=False, limit=-1)
 
     @staticmethod
     def test_map_1(tmp_path: pathlib.Path) -> None:
@@ -754,19 +758,22 @@ class TestTable:
 
         with pytest.raises(
             AssertionError,
-            match=r"attribute is unique, but it already appears on row 2",
+            match=r"invalid value at attribute testattr1: attribute is unique,"
+            r" but it already appears on row 1 \(line 2\)",
         ):
             table.add_row((True, 2.34, 10, "the quick bwown fox"))
 
         with pytest.raises(
             AssertionError,
-            match=r"attribute is unique, but it already appears on row 3",
+            match=r"invalid value at attribute testattr1: attribute is unique,"
+            r" but it already appears on row 2 \(line 3\)",
         ):
             table.add_row((False, 4.45, 11, "jumps ovew the"))
 
         with pytest.raises(
             AssertionError,
-            match=r"attribute is unique, but it already appears on row 2",
+            match=r"invalid value at attribute testattr1: attribute is unique,"
+            r" but it already appears on row 1 \(line 2\)",
         ):
             table.add_row((True, 3.14, 6, "hewwo world~"))
 
