@@ -22,7 +22,7 @@ check_command = "{pyexe} -m isort --profile black --check {path}"
 
 [[tool.lemming.linters]]
 packages = ["flake8", "flake8-bandit"]
-command = "{pyexe} -m flake8 --count --exclude *venv* --show-source --statistics --extend-ignore=W503,S101 {path}"
+command = "{pyexe} -m flake8 --count --extend-exclude *venv*,*cache* --show-source --statistics --extend-ignore=W503,S101 {path}"
 
 [[tool.lemming.linters]]
 packages = ["pyroma"]
