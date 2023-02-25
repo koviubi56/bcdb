@@ -31,8 +31,8 @@ import functools
 import pathlib
 import string as stringlib
 import threading
-from typing import Any, Callable, Collection, Iterable, Generator
 import warnings
+from typing import Any, Callable, Collection, Generator, Iterable
 
 from typing_extensions import Self, TypeAlias
 
