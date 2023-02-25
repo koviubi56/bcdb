@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 __version__ = "0.4.0-beta.1"
 __author__ = "Koviubi56"
 __email__ = "koviubi56@duck.com"
-__license__ = "GNU GPLv3"
+__license__ = "GNU GPLv3+"
 __copyright__ = "Copyright (C) 2022 Koviubi56"
 __description__ = "Black Cat DataBase is a simple database."
 __url__ = "https://github.com/koviubi56/bcdb"
