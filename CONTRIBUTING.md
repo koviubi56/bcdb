@@ -25,43 +25,11 @@ Black Cat DataBase is an open source project and we love to receive contribution
 
 ## How to file a bug report?
 
-_(It's really recommended to read [Simon Tatham's guidelines](https://www.chiark.greenend.org.uk/~sgtatham/bugs.html) before reporting a bug!)_
-
-1. Go to Black Cat DataBase's GitHub repository.
-1. Click on the `Issues` tab.
-1. Click on the green `New issue` button.
-1. Click on the green `Get started` button next to `Bug report`.
-1. You now have to write the issue.
-   1. Write a good title.
-      Good: `ValueError when calling foo() with bar=False`
-      Bad: `ValueError`
-   1. Replace comments (`<!-- ... -->`) with text.
-      Good: `A ValueError is raised, when foo() is called with bar=False.`
-      Bad: `<!-- What is the bug? -->`
-   1. Put `X` in the square brackets at the end of the issue.
-      Good: `- [X] I agree to the [code of conduct](CODE_OF_CONDUCT.md)`
-      Bad: `- [ ] I agree to the [code of conduct](CODE_OF_CONDUCT.md)`
-1. Click on the green `Submit new issue` button.
-1. Done! You now have to wait for the issue to be resolved. It's important, that you don't forget about the issue.
+Click [here](https://github.com/koviubi56/bcdb/issues/new?assignees=&labels=bug&template=bug_report.yml) and fill out the form.
 
 ## How to suggest a feature?
 
-1. Go to Black Cat DataBase's GitHub repository.
-1. Click on the `Issues` tab.
-1. Click on the green `New issue` button.
-1. Click on the green `Get started` button next to `Give an idea`.
-1. You now have to write the issue.
-   1. Write a good title.
-      Good: `Add a progress bar`
-      Bad: `Bar`
-   1. Replace comments (`<!-- ... -->`) with text.
-      Good: `A progress bar could be shown when foo() is called.`
-      Bad: `<!-- What is the idea? What feature do you want? -->`
-   1. Put `X` in the square brackets at the end of the issue.
-      Good: `- [X] I agree to the [code of conduct](CODE_OF_CONDUCT.md)`
-      Bad: `- [ ] I agree to the [code of conduct](CODE_OF_CONDUCT.md)`
-1. Click on the green `Submit new issue` button.
-1. Done! You now have to wait for the issue to be resolved. It's important, that you don't forget about the issue.
+Click [here](https://github.com/koviubi56/bcdb/issues/new?assignees=&labels=enhancement&template=feature_request.yml) and fill out the form.
 
 ## How to set up your environment and run tests?
 
