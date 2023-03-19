@@ -25,7 +25,7 @@ jobs:
             files.pythonhosted.org:443 github.com:443 pypi.org:443
 
 
-      - uses: actions/checkout@dc323e67f16fb5f7663d20ff7941f27f5809e9b6 # v2.6.0
+      - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v2.6.0
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@75f3110429a8c05be0e1bf360334e4cced2b63fa # v2.3.3
         with:
