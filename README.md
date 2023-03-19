@@ -23,7 +23,7 @@ pip install bcdb
 
 ## Requirements
 
-BCDB requires Python 3.10.
+BCDB requires Python 3.11.
 
 ## Usage
 
