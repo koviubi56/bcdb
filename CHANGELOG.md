@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## Added
 
 - **! Added `Table.get_rows_generator(self: Self@Table, *, lock: bool = True) -> Generator[tuple, None, None]`, which is the same as the _old_ `get_rows`, but it's a generator** (i'm not sure if that helps with performance or not)
+- `Table` now supports type hints with TypeVarTuple
 - `Table.remove_row(self: Self@Table, where: Where, must_remove: bool = True, silence_warning: bool = False) -> bool` got a new argument: `silence_warnings`. If it's not passed, or False, a warning will be issued if multiple rows matched `where(row)`
 - `Table.remove_rows(self: Self@Table, where: Where, must_remove: bool = True, *, limit: int = 1000) -> int` got a new argument: `must_remove`. See docstring for more info.
 

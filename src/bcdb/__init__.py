@@ -32,14 +32,15 @@ import pathlib
 import string as stringlib
 import threading
 import warnings
-from typing import Any, Callable, Collection, Generator, Iterable
+from typing import Any, Callable, Collection, Generator, Generic, Iterable
 
-from typing_extensions import Self, TypeAlias
+from typing_extensions import Self, TypeAlias, TypeVarTuple
 
 if not __debug__:
     raise Exception("BCDB cannot be used with the -O flag")
 
-Where: TypeAlias = Callable[[tuple[Any, ...]], bool]
+Ts = TypeVarTuple("Ts")
+Where: TypeAlias = Callable[[tuple[*Ts]], bool]
 
 
 def unique(iterable: Collection[Any]) -> bool:
@@ -56,7 +57,7 @@ def unique(iterable: Collection[Any]) -> bool:
 
 
 @dataclasses.dataclass(order=True, frozen=True)
-class Table:
+class Table(Generic[*Ts]):
     """
     A table.
 
@@ -226,7 +227,7 @@ class Table:
         """
         return self._contains(attribute_name, attribute_value, False)
 
-    def _contains_row(self, row: tuple[Any, ...], rv_if_found: bool) -> bool:
+    def _contains_row(self, row: tuple[*Ts], rv_if_found: bool) -> bool:
         # Internal function, please use `.contains_row()` and
         # `.not_contains_row()` instead
         for got_row in self.get_rows_generator():
@@ -234,7 +235,7 @@ class Table:
                 return rv_if_found
         return not rv_if_found
 
-    def contains_row(self, row: tuple[Any, ...]) -> bool:
+    def contains_row(self, row: tuple[*Ts]) -> bool:
         """
         Return True if `row` is in the table.
 
@@ -248,14 +249,14 @@ class Table:
             by this function.
 
         Args:
-            row (tuple[Any, ...]): The row to look out for.
+            row (tuple[*Ts]): The row to look out for.
 
         Returns:
             bool: True if `row` is in the table, False otherwise.
         """
         return self._contains_row(row, True)
 
-    def not_contains_row(self, row: tuple[Any, ...]) -> bool:
+    def not_contains_row(self, row: tuple[*Ts]) -> bool:
         """
         Return False if `row` is in the table.
 
@@ -269,7 +270,7 @@ class Table:
             by this function.
 
         Args:
-            row (tuple[Any, ...]): The row to look out for.
+            row (tuple[*Ts]): The row to look out for.
 
         Returns:
             bool: False if `row` is in the table, True otherwise.
@@ -278,7 +279,7 @@ class Table:
 
     def get_rows_generator(
         self, *, lock: bool = True
-    ) -> Generator[tuple[Any, ...], None, None]:
+    ) -> Generator[tuple[*Ts], None, None]:
         """
         Yield all rows in the table.
 
@@ -296,7 +297,7 @@ class Table:
             Defaults to True.
 
         Yields:
-            tuple[Any, ...]: A row in the table. The tuples represent rows.
+            tuple[*Ts]: A row in the table. The tuples represent rows.
             All of the tuples have the same length.
         """
         with self.lock if lock else contextlib.nullcontext():
@@ -329,13 +330,13 @@ class Table:
                     )
                 yield tuple(column_)
 
-    def get_rows(self, *, lock: bool = True) -> list[tuple[Any, ...]]:
+    def get_rows(self, *, lock: bool = True) -> list[tuple[*Ts]]:
         warnings.warn(
             "Consider using .get_rows_generator() instead.", RuntimeWarning
         )
         return list(self.get_rows_generator(lock=lock))
 
-    def add_row(self, row: tuple[Any, ...], *, lock: bool = True) -> None:
+    def add_row(self, row: tuple[*Ts], *, lock: bool = True) -> None:
         """
         Add a row to the table.
 
@@ -347,7 +348,7 @@ class Table:
             function.
 
         Args:
-            row (tuple[Any, ...]): The row. Each element in the tuple
+            row (tuple[*Ts]): The row. Each element in the tuple
             represents a column.
             lock (bool, optional): Acquire lock. Don't change this!
         """
@@ -367,7 +368,7 @@ class Table:
                 file.write(f"{txt}\n")
 
     def add_rows(
-        self, rows: Iterable[tuple[Any, ...]], *, lock: bool = True
+        self, rows: Iterable[tuple[*Ts]], *, lock: bool = True
     ) -> None:
         """
         Add multiple rows (like `list.extend()`).
@@ -376,7 +377,7 @@ class Table:
             AssertionError: If `self.add_row` raises
 
         Args:
-            rows (Iterable[tuple[Any, ...]]): The rows. Each item (tuple) is
+            rows (Iterable[tuple[*Ts]]): The rows. Each item (tuple) is
             one row.
             lock (bool, optional): Same as in `self.add_row`. Defaults to True.
         """
@@ -399,7 +400,7 @@ class Table:
         Remove the *first* row where `where(row)` is truthy.
 
         Args:
-            where (Callable[[tuple[Any, ...]], bool]): A function that accepts
+            where (Callable[[tuple[*Ts]], bool]): A function that accepts
             a tuple as a positional argument, and returns a boolean.
             must_remove (bool, optional): If this is True, and no rows were
             removed, an AssertionError will be raised. Defaults to True.
@@ -418,7 +419,7 @@ class Table:
             bool: True if a row was removed, False otherwise
         """
         changes = False
-        new_rows: list[tuple[Any, ...]] = []
+        new_rows: list[tuple[*Ts]] = []
         # new_rows will be populated with the rows that were NOT removed
         for row in self.get_rows_generator():
             if where(row):
@@ -461,7 +462,7 @@ class Table:
         Remove all rows where `where(row)` is truthy.
 
         Args:
-            where (Callable[[tuple[Any, ...]], bool]): A function that accepts
+            where (Callable[[tuple[*Ts]], bool]): A function that accepts
             a tuple as a positional argument, and returns a boolean.
             must_remove (bool, optional): If True, an exception will be raised
             if no rows were removed. Defaults to True.
@@ -480,7 +481,7 @@ class Table:
             int: The number of rows removed.
         """
         num_of_changes = 0
-        new_rows: list[tuple[Any, ...]] = []
+        new_rows: list[tuple[*Ts]] = []
         # new_rows will be populated with the rows that were NOT removed
         for row in self.get_rows_generator():
             if where(row):
@@ -510,7 +511,7 @@ class Table:
 
     def write_rows(
         self,
-        rows: list[tuple[Any, ...]],
+        rows: list[tuple[*Ts]],
         *,
         i_know_what_im_doing: bool = False,
         lock: bool = True,
@@ -524,7 +525,7 @@ class Table:
             this function.
 
         Args:
-            rows (list[tuple[Any, ...]]): The rows that will be in the file.
+            rows (list[tuple[*Ts]]): The rows that will be in the file.
             i_know_what_im_doing (bool, optional): Defaults to False.
             lock (bool, optional): Acquire lock before reading/writing. Please
             don't change it. Defaults to True.
@@ -548,15 +549,15 @@ class Table:
 
     def map(  # noqa: A003
         self,
-        func: Callable[[tuple[Any, ...]], tuple[Any, ...] | None],
+        func: Callable[[tuple[*Ts]], tuple[*Ts] | None],
         *,
         write: bool = False,
-    ) -> list[tuple[Any, ...]]:
+    ) -> list[tuple[*Ts]]:
         """
         Use `func` on all rows (like the built-in `map()`).
 
         Args:
-            func (Callable[[tuple[Any, ...]], tuple[Any, ...]  |  None]): The
+            func (Callable[[tuple[*Ts]], tuple[*Ts]  |  None]): The
             function to call. It must return a tuple or None. If it returns
             None, then that row is considered to be removed (it will only be
             actually removed if `write=True`).
@@ -574,11 +575,11 @@ class Table:
             function.
 
         Returns:
-            list[tuple[Any, ...]]: The new rows
+            list[tuple[*Ts]]: The new rows
         """
         with self.lock:
             # * the actual map part
-            new_rows: list[tuple[Any, ...]] = []
+            new_rows: list[tuple[*Ts]] = []
             for row in self.get_rows_generator(lock=False):
                 new_row = func(row)
                 if new_row is None:
@@ -605,13 +606,13 @@ class Table:
             return new_rows
 
     def filter(  # noqa: A003
-        self, func: Callable[[tuple[Any, ...]], bool], *, write: bool = False
-    ) -> list[tuple[Any, ...]]:
+        self, func: Callable[[tuple[*Ts]], bool], *, write: bool = False
+    ) -> list[tuple[*Ts]]:
         """
         Retain rows where `func(row)` is truthy (like the built-in `filter()`).
 
         Args:
-            func (Callable[[tuple[Any, ...]], bool]): The function to call. It
+            func (Callable[[tuple[*Ts]], bool]): The function to call. It
             must return a bool. If it returns False, then that row is
             considered to be removed (it will only be actually removed if
             `write=True`).
@@ -623,17 +624,17 @@ class Table:
             function.
 
         Returns:
-            list[tuple[Any, ...]]: The new rows
+            list[tuple[*Ts]]: The new rows
         """
 
-        def _func(row: tuple[Any, ...]) -> tuple[Any, ...] | None:
+        def _func(row: tuple[*Ts]) -> tuple[*Ts] | None:
             return (row) if (func(row)) else (None)
 
         return self.map(_func, write=write)
 
     def get_row_where(
         self, attribute_name: str, attribute_value: Any
-    ) -> tuple[Any, ...]:
+    ) -> tuple[*Ts]:
         """
         Get the row where the column at `attribute_name` is `attribute_value`.
 
@@ -649,11 +650,11 @@ class Table:
             functions (get_attribute_index, filter) called by this function.
 
         Returns:
-            tuple[Any, ...]: The row
+            tuple[*Ts]: The row
         """
         attr_idx = self.get_attribute_index(attribute_name)
 
-        def _func(row: tuple[Any, ...]) -> bool:
+        def _func(row: tuple[*Ts]) -> bool:
             # ? for some reason mypy yells at us?
             # error: Returning Any from function declared to return "bool"
             return (  # type: ignore[no-any-return]
@@ -679,7 +680,7 @@ class Table:
         attribute_name: str,
         attribute_value: Any,
         allow_empty: bool = False,
-    ) -> list[tuple[Any, ...]]:
+    ) -> list[tuple[*Ts]]:
         """
         Get all rows where the column at `attribute_name` is `attribute_value`.
 
@@ -696,11 +697,11 @@ class Table:
             functions (get_attribute_index, filter) called by this function.
 
         Returns:
-            list[tuple[Any, ...]]: The rows
+            list[tuple[*Ts]]: The rows
         """
         attr_idx = self.get_attribute_index(attribute_name)
 
-        def _func(row: tuple[Any, ...]) -> bool:
+        def _func(row: tuple[*Ts]) -> bool:
             # ? for some reason mypy yells at us?
             # error: Returning Any from function declared to return "bool"
             return (  # type: ignore[no-any-return]
