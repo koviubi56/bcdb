@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2023-04-24
+
 ## Added
 
 - **! Added `Table.get_rows_generator(self: Self@Table, *, lock: bool = True) -> Generator[tuple, None, None]`, which is the same as the _old_ `get_rows`, but it's a generator** (i'm not sure if that helps with performance or not)
