@@ -1,4 +1,4 @@
-# Black Cat DataBase
+# Black Cat DataBase - DEPRECATED, use anything else
 
 [![Hits-of-Code](https://hitsofcode.com/github/koviubi56/bcdb?branch=main)](https://hitsofcode.com/github/koviubi56/bcdb/view?branch=main)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/103515bdc600439d98a0f1ea1f767c71)](https://www.codacy.com/gh/koviubi56/bcdb/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=koviubi56/bcdb&amp;utm_campaign=Badge_Grade)
@@ -11,7 +11,7 @@
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/bcdb)
 ![PyPI - Format](https://img.shields.io/pypi/format/bcdb)
 
-Black Cat DataBase (BCDB) is a simple database.
+~~Black Cat DataBase (BCDB) is a simple database.
 
 ## Installation
 
@@ -71,4 +71,4 @@ A list of nice people who helped this project can be found in the [CONTRIBUTORS 
 
 ## License
 
-[GNU GPLv3+](LICENSE)
+[GNU GPLv3+](LICENSE)~~
